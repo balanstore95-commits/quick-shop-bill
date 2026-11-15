@@ -9,6 +9,7 @@
   "orientation": "portrait",
   "background_color": "#f1f5f9",
   "theme_color": "#059669",
+  "categories": ["business", "finance", "productivity"],
   "icons": [
     {
       "src": "https://placehold.co/192x192/059669/ffffff.png?text=QB",
@@ -22,5 +23,8 @@
       "type": "image/png",
       "purpose": "any"
     }
-  ]
-}
+  ],
+  "screenshots": [
+    {
+      "src": "https://placehold.co/1080x1920/059669/ffffff.png?text=Quick+Shop+Billing",
+      "sizes
