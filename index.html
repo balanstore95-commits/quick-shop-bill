@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Android PWA / Home Screen App Meta Tags -->
+    <meta name="theme-color" content="#0f766e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="Quick Bill">
+    <meta name="apple-mobile-web-app-title" content="Quick Bill">
+    <title>Quick Bill - கடை பில்லிங் ஆப்</title>
+<!-- PWA Manifest & Service Worker -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#059669">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('Offline Service Worker Registered'))
+        .catch((err) => console.log('SW Error:', err));
+    });
+  }
+</script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans Tamil -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans Tamil', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Hide number input arrows for clean mobile input */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* Smooth horizontal scrolling without scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Active tap feedback like native Android ripple/scale */
+        .tap-active:active {
+            transform: scale(0.96);
+            transition: transform 0.08s ease-out;
+        }
+
+        /* Safe area padding for modern Android gesture navigation */
+        body {
+            padding-bottom: env(safe-area-inset-bottom, 80px);
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased select-none">
+
+    <!-- ================= STICKY TOP GRAND TOTAL HEADER ================= -->
+    <header id="appHeader" class="sticky top-0 z-30 bg-gradient-to-br from-brand-700 via-brand-800 to-teal-900 text-white shadow-lg rounded-b-3xl transition-colors duration-200">
+        <div class="max-w-[480px] mx-auto px-4 pt-3 pb-4">
+            <!-- Top App Bar Row -->
+            <div class="flex items-center justify-between gap-2 mb-2.5">
+                <div class="flex items-center gap-2 min-w-0">
+                    <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center backdrop-blur-sm shrink-0">
+                        <i class="fa-solid fa-calculator text-teal-200 text-sm"></i>
+                    </div>
+                    <h1 class="text-sm sm:text-base font-bold tracking-wide leading-tight truncate">
+                        கடை பில் <span class="font-normal text-white/80 text-xs">/ Quick Bill</span>
+                    </h1>
+                </div>
+
+                <!-- Top Action Buttons -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button id="installPwaBtn" onclick="triggerInstall()" class="hidden text-xs bg-amber-400 text-slate-950 font-extrabold px-2.5 py-1.5 rounded-full shadow tap-active flex items-center gap-1">
+                        <i class="fa-solid fa-download"></i>
+                        <span>App</span>
+                    </button>
+                    <button onclick="openResetConfirm()" class="text-xs bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-semibold px-3 py-1.5 rounded-full transition flex items-center gap-1.5 tap-active" title="Clear Quantities">
+                        <i class="fa-solid fa-rotate-left text-xs"></i>
+                        <span>Clear / அழி</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ONE-TAP RETAIL / WHOLESALE MODE SWITCHER -->
+            <div class="bg-black/25 p-1 rounded-2xl grid grid-cols-2 gap-1 mb-2.5 border border-white/15">
+                <button id="modeRetailBtn" onclick="setPriceMode('retail')" class="py-2 px-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 bg-white text-brand-900 shadow transition tap-active">
+                    <i class="fa-solid fa-store text-brand-700"></i>
+                    <span>சில்லறை (Retail)</span>
+                </button>
+                <button id="modeWholesaleBtn" onclick="setPriceMode('wholesale')" class="py-2 px-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 text-white/85 hover:text-white transition tap-active">
+                    <i class="fa-solid fa-boxes-stacked text-amber-300"></i>
+                    <span>மொத்த விலை (Wholesale)</span>
+                </button>
+            </div>
+
+            <!-- BIG TOTAL AMOUNT DISPLAY CARD -->
+            <div class="bg-black/25 backdrop-blur-md border border-white/15 rounded-2xl px-4 py-3 flex items-center justify-between shadow-inner">
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[11px] uppercase tracking-wider text-white/80 font-semibold">
+                            மொத்த தொகை / GRAND TOTAL
+                        </span>
+                        <span id="activeModePill" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950">
+                            RETAIL
+                        </span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-2xl sm:text-3xl font-bold text-amber-300">₹</span>
+                        <span id="grandTotalDisplay" class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white">0</span>
+                    </div>
+                </div>
+
+                <!-- Items Count & Quick Bill Button -->
+                <div class="flex flex-col items-end gap-2">
+                    <span id="itemCountBadge" class="text-xs font-semibold bg-white/15 border border-white/25 text-white px-2.5 py-0.5 rounded-full">
+                        0 Items (0 Qty)
+                    </span>
+                    <button onclick="openBillModal()" class="bg-white hover:bg-slate-50 text-slate-900 font-extrabold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5 tap-active">
+                        <i class="fa-solid fa-receipt text-brand-700"></i>
+                        <span>View Bill</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================= SEARCH & FILTER BAR ================= -->
+    <section class="max-w-[480px] mx-auto px-3 pt-3 pb-2 sticky top-[192px] sm:top-[204px] z-20 bg-slate-100/95 backdrop-blur-sm">
+        <div class="flex items-center gap-2">
+            <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    oninput="handleSearch(this.value)"
+                    placeholder="Search products / பொருள் தேடுக..." 
+                    class="w-full bg-white border border-slate-200 focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 rounded-xl pl-9 pr-8 py-2.5 text-sm font-medium text-slate-800 shadow-xs outline-none transition"
+                >
+                <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+            </div>
+            <button id="selectedOnlyBtn" onclick="toggleSelectedOnly()" class="bg-white border border-slate-200 text-slate-700 font-semibold text-xs px-3 py-2.5 rounded-xl shadow-xs flex items-center gap-1.5 whitespace-nowrap tap-active transition">
+                <i class="fa-solid fa-cart-shopping text-brand-600"></i>
+                <span>Selected</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- ================= MAIN 35-PRODUCT LIST ================= -->
+    <main class="max-w-[480px] mx-auto px-3 pb-28">
+        <div id="productListContainer" class="space-y-2.5">
+            <!-- Product Cards injected via JS -->
+        </div>
+
+        <!-- Empty Search State -->
+        <div id="emptyState" class="hidden text-center py-12 px-4">
+            <div class="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400 text-2xl">
+                <i class="fa-solid fa-box-open"></i>
+            </div>
+            <h3 class="font-bold text-slate-700 text-base">No products found / பொருள் இல்லை</h3>
+            <p class="text-xs text-slate-500 mt-1">Try clearing the search or filter.</p>
+            <button onclick="resetFilters()" class="mt-4 bg-brand-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow tap-active">
+                Show All Products
+            </button>
+        </div>
+    </main>
+
+    <!-- ================= ANDROID BOTTOM NAVIGATION BAR ================= -->
+    <nav class="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <div class="max-w-[480px] mx-auto grid grid-cols-3 h-16">
+            <!-- Tab 1: Billing -->
+            <button onclick="switchTab('billing')" id="navBilling" class="flex flex-col items-center justify-center gap-0.5 text-brand-700 font-bold transition tap-active">
+                <i class="fa-solid fa-calculator text-lg"></i>
+                <span class="text-[11px]">Billing / பில்</span>
+            </button>
+
+            <!-- Tab 2: Edit Prices / Manage Products -->
+            <button onclick="openManageModal()" id="navManage" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-brand-700 font-medium transition tap-active">
+                <i class="fa-solid fa-tags text-lg"></i>
+                <span class="text-[11px]">Edit Prices / விலை</span>
+            </button>
+
+            <!-- Tab 3: View Receipt -->
+            <button onclick="openBillModal()" id="navReceipt" class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-brand-700 font-medium transition tap-active relative">
+                <div class="relative">
+                    <i class="fa-solid fa-receipt text-lg"></i>
+                    <span id="navBadgeCount" class="hidden absolute -top-1.5 -right-2.5 bg-brand-600 text-white text-[10px] font-bold min-w-4 h-4 px-1 rounded-full flex items-center justify-center">0</span>
+                </div>
+                <span class="text-[11px]">View Bill / ரசீது</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ================= MODAL 1: BILL SUMMARY & WHATSAPP SHARE ================= -->
+    <div id="billModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div id="billModalHeader" class="px-5 py-4 bg-brand-700 text-white flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-bold text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-receipt text-amber-300"></i>
+                            <span>Bill Summary / பில் விவரம்</span>
+                        </h2>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <p id="billDateTime" class="text-xs text-white/85"></p>
+                        <span id="billModeBadge" class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                            Retail Rate
+                        </span>
+                    </div>
+                </div>
+                <button onclick="closeBillModal()" class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-white hover:bg-white/25 tap-active">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Itemized Receipt Body -->
+            <div class="p-4 overflow-y-auto flex-1 bg-slate-50">
+                <div id="billItemsContainer" class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 shadow-xs">
+                    <!-- Selected items rendered here -->
+                </div>
+
+                <!-- Grand Total Box inside Receipt -->
+                <div id="billTotalBox" class="mt-4 bg-brand-50 border border-brand-200 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold uppercase text-brand-700 block">Grand Total / மொத்த தொகை</span>
+                        <span id="billTotalItemsText" class="text-xs text-slate-600">0 Items</span>
+                    </div>
+                    <div class="text-3xl font-extrabold text-brand-800">
+                        ₹<span id="billModalTotal">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <div class="p-4 bg-white border-t border-slate-200 space-y-2.5">
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button onclick="copyBillText()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow tap-active">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>Copy Bill</span>
+                    </button>
+                    <button onclick="shareWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow tap-active">
+                        <i class="fa-brands fa-whatsapp text-lg"></i>
+                        <span>WhatsApp</span>
+                    </button>
+                </div>
+                <button onclick="startNewBill()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-3 px-4 rounded-xl text-sm flex items-center justify-center gap-2 tap-active">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>New Bill (Clear All / புதிய பில்)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL 2: MANAGE PRODUCTS & FIXED PRICES ================= -->
+    <div id="manageModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full max-w-[480px] rounded-t-3xl sm:rounded-3xl shadow-2xl h-[92vh] sm:h-[85vh] flex flex-col overflow-hidden">
+            <!-- Header -->
+            <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                    <h2 class="font-bold text-base sm:text-lg flex items-center gap-2">
+                        <i class="fa-solid fa-tags text-amber-400"></i>
+                        <span>Edit Prices & Items / விலை மாற்றம்</span>
+                    </h2>
+                    <p class="text-xs text-slate-300">Changes save automatically on your phone</p>
+                </div>
+                <button onclick="closeManageModal()" class="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-white tap-active">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Add / Edit Product Form -->
+            <div class="p-3.5 bg-slate-50 border-b border-slate-200">
+                <form id="productForm" onsubmit="saveProductForm(event)" class="space-y-2">
+                    <input type="hidden" id="editProductId">
+                    <div>
+                        <input type="text" id="prodNameInput" required placeholder="Product Name (e.g., அரிசி / Rice)" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-medium focus:border-brand-600 outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="relative">
+                            <span class="text-[10px] font-bold text-teal-700 block mb-0.5 pl-1">சில்லறை (Retail ₹)</span>
+                            <input type="number" id="prodRetailInput" step="0.01" min="0" required placeholder="Retail ₹" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold focus:border-brand-600 outline-none">
+                        </div>
+                        <div class="relative">
+                            <span class="text-[10px] font-bold text-indigo-700 block mb-0.5 pl-1">மொத்த விலை (Wholesale ₹)</span>
+                            <input type="number" id="prodWholesaleInput" step="0.01" min="0" required placeholder="Wholesale ₹" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold focus:border-indigo-600 outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 pt-0.5">
+                        <button type="submit" id="saveProdBtn" class="flex-1 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow flex items-center justify-center gap-1.5 tap-active">
+                            <i class="fa-solid fa-plus"></i>
+                            <span id="saveProdBtnText">Add Product / சேர்க்க</span>
+                        </button>
+                        <button type="button" id="cancelEditBtn" onclick="resetProductForm()" class="hidden bg-slate-200 text-slate-700 font-bold text-xs px-3 py-2.5 rounded-xl tap-active">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Search Bar inside Manage Modal -->
+            <div class="px-4 py-2 bg-white border-b border-slate-200">
+                <input type="text" id="manageSearchInput" oninput="renderManageList()" placeholder="Filter list / பொருள் தேடுக..." class="bg-slate-100 rounded-lg px-3 py-1.5 text-xs w-full outline-none">
+            </div>
+
+            <!-- Editable Product List -->
+            <div id="manageProductList" class="p-3 overflow-y-auto flex-1 space-y-2 bg-slate-100">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL 3: CUSTOM CONFIRMATION DIALOG (NO alert/confirm) ================= -->
+    <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="confirmTitle" class="font-bold text-slate-900 text-base">Clear All Quantities?</h3>
+            <p id="confirmMessage" class="text-xs text-slate-500 mt-1.5 leading-relaxed">All entered quantities will become 0. Fixed prices will stay saved.</p>
+            <div class="grid grid-cols-2 gap-2.5 mt-5">
+                <button onclick="closeConfirmModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs tap-active">
+                    Cancel / வேண்டாம்
+                </button>
+                <button id="confirmActionBtn" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs shadow tap-active">
+                    Yes, Clear / ஆம்
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= TOAST NOTIFICATION ================= -->
+    <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 whitespace-nowrap">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Saved!</span>
+    </div>
+
+    <!-- ================= APPLICATION JAVASCRIPT ================= -->
+    <script>
+        /**
+         * 1. DEFAULT 35 PRODUCTS WITH PRE-FIXED RETAIL & WHOLESALE PRICES
+         * Bilingual (Tamil + English) for fast recognition in shops & wholesale
+         */
+        const DEFAULT_PRODUCTS = [
+            { id: 1, name: "தீப்பெட்டி / Matchbox (1 Pc)", retailPrice: 2, wholesalePrice: 1.5 },
+            { id: 2, name: "தீப்பெட்டி கட்டு / Matchbox Bundle", retailPrice: 18, wholesalePrice: 15 },
+            { id: 3, name: "பீடி கட்டு / Beedi Bundle", retailPrice: 25, wholesalePrice: 22 },
+            { id: 4, name: "கருவாடு / Dry Fish (100g)", retailPrice: 35, wholesalePrice: 30 },
+            { id: 5, name: "அரிசி / Rice (1 Kg)", retailPrice: 58, wholesalePrice: 53 },
+            { id: 6, name: "இட்லி அரிசி / Idli Rice (1 Kg)", retailPrice: 46, wholesalePrice: 42 },
+            { id: 7, name: "சர்க்கரை / Sugar (1 Kg)", retailPrice: 45, wholesalePrice: 41 },
+            { id: 8, name: "நாட்டு சர்க்கரை / Jaggery Powder (1 Kg)", retailPrice: 68, wholesalePrice: 62 },
+            { id: 9, name: "துவரம் பருப்பு / Toor Dal (1 Kg)", retailPrice: 155, wholesalePrice: 145 },
+            { id: 10, name: "உளுத்தம் பருப்பு / Urad Dal (1 Kg)", retailPrice: 135, wholesalePrice: 126 },
+            { id: 11, name: "கடலை பருப்பு / Chana Dal (1 Kg)", retailPrice: 92, wholesalePrice: 85 },
+            { id: 12, name: "பாசிப் பருப்பு / Moong Dal (1 Kg)", retailPrice: 118, wholesalePrice: 110 },
+            { id: 13, name: "சமையல் எண்ணெய் / Sunflower Oil (1 Ltr)", retailPrice: 135, wholesalePrice: 126 },
+            { id: 14, name: "நல்லெண்ணெய் / Gingelly Oil (500 ml)", retailPrice: 175, wholesalePrice: 162 },
+            { id: 15, name: "தேங்காய் எண்ணெய் / Coconut Oil (500 ml)", retailPrice: 120, wholesalePrice: 110 },
+            { id: 16, name: "கல் உப்பு / Crystal Salt (1 Kg)", retailPrice: 14, wholesalePrice: 11 },
+            { id: 17, name: "தூள் உப்பு / Table Salt (1 Kg)", retailPrice: 22, wholesalePrice: 18 },
+            { id: 18, name: "புளி / Tamarind (250g)", retailPrice: 45, wholesalePrice: 40 },
+            { id: 19, name: "காய்ந்த மிளகாய் / Dry Chilli (250g)", retailPrice: 65, wholesalePrice: 58 },
+            { id: 20, name: "மல்லி விதை / Coriander Seeds (250g)", retailPrice: 40, wholesalePrice: 35 },
+            { id: 21, name: "கடுகு / Mustard Seeds (100g)", retailPrice: 15, wholesalePrice: 12 },
+            { id: 22, name: "சீரகம் / Cumin Seeds (100g)", retailPrice: 42, wholesalePrice: 37 },
+            { id: 23, name: "மிளகு / Black Pepper (50g)", retailPrice: 45, wholesalePrice: 40 },
+            { id: 24, name: "மஞ்சள் தூள் / Turmeric Powder (100g)", retailPrice: 28, wholesalePrice: 24 },
+            { id: 25, name: "மிளகாய் தூள் / Chilli Powder (100g)", retailPrice: 36, wholesalePrice: 31 },
+            { id: 26, name: "டீ தூள் / Tea Powder (250g)", retailPrice: 85, wholesalePrice: 78 },
+            { id: 27, name: "காபி தூள் / Coffee Powder (100g)", retailPrice: 55, wholesalePrice: 49 },
+            { id: 28, name: "பால் பாக்கெட் / Milk Packet (500 ml)", retailPrice: 24, wholesalePrice: 22.5 },
+            { id: 29, name: "முட்டை / Egg (1 Pc)", retailPrice: 6, wholesalePrice: 5.25 },
+            { id: 30, name: "பிஸ்கட் பாக்கெட் / Biscuit Pack", retailPrice: 10, wholesalePrice: 8.5 },
+            { id: 31, name: "ரஸ்க் பாக்கெட் / Rusk Pack", retailPrice: 25, wholesalePrice: 21 },
+            { id: 32, name: "குளியல் சோப்பு / Bath Soap", retailPrice: 35, wholesalePrice: 31 },
+            { id: 33, name: "துணி சோப்பு / Washing Soap Bar", retailPrice: 20, wholesalePrice: 17.5 },
+            { id: 34, name: "சர்ப் பாக்கெட் / Detergent Powder (500g)", retailPrice: 52, wholesalePrice: 46 },
+            { id: 35, name: "ஷாம்பு பாக்கெட் / Shampoo Sachet", retailPrice: 2, wholesalePrice: 1.6 }
+        ];
+
+        // Storage Keys
+        const STORAGE_PRODUCTS_KEY = 'quickbill_products_dual_v1';
+        const STORAGE_CART_KEY = 'quickbill_quantities_v1';
+        const STORAGE_MODE_KEY = 'quickbill_price_mode_v1';
+
+        // App State
+        let products = [];
+        let quantities = {}; // { productId: number }
+        let priceMode = 'retail'; // 'retail' | 'wholesale'
+        let searchQuery = '';
+        let showSelectedOnly = false;
+        let deferredPrompt = null;
+
+        /**
+         * 2. INITIALIZATION & PWA SETUP
+         */
+        function initApp() {
+            loadStateFromStorage();
+            applyPriceModeUI();
+            renderProducts();
+            updateTotals();
+            registerDynamicPWA();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+
+        // Capture Android Chrome 'Add to Home Screen' event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('installPwaBtn');
+            if (installBtn) installBtn.classList.remove('hidden');
+        });
+
+        function triggerInstall() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(() => {
+                deferredPrompt = null;
+                document.getElementById('installPwaBtn').classList.add('hidden');
+            });
+        }
+
+        // Inject Dynamic Web App Manifest for Android Native App Experience
+        function registerDynamicPWA() {
+            try {
+                const manifest = {
+                    name: "Quick Bill - கடை பில்லிங் ஆப்",
+                    short_name: "Quick Bill",
+                    start_url: ".",
+                    display: "standalone",
+                    background_color: "#f1f5f9",
+                    theme_color: "#0f766e",
+                    orientation: "portrait",
+                    icons: [
+                        {
+                            src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%230f766e'/%3E%3Ctext x='50%25' y='56%25' font-size='260' text-anchor='middle' fill='%23fbbf24' font-family='sans-serif' font-weight='bold'%3E₹%3C/text%3E%3C/svg%3E",
+                            sizes: "512x512",
+                            type: "image/svg+xml"
+                        }
+                    ]
+                };
+                const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+                const manifestURL = URL.createObjectURL(blob);
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = manifestURL;
+                document.head.appendChild(link);
+            } catch (err) {
+                console.warn('PWA manifest injection skipped:', err);
+            }
+        }
+
+        /**
+         * 3. LOCAL STORAGE PERSISTENCE
+         */
+        function loadStateFromStorage() {
+            try {
+                const savedProducts = localStorage.getItem(STORAGE_PRODUCTS_KEY);
+                if (savedProducts) {
+                    const parsed = JSON.parse(savedProducts);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        products = parsed.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            retailPrice: p.retailPrice !== undefined ? Number(p.retailPrice) : Number(p.price || 0),
+                            wholesalePrice: p.wholesalePrice !== undefined ? Number(p.wholesalePrice) : Number(p.price || 0)
+                        }));
+                    } else {
+                        products = [...DEFAULT_PRODUCTS];
+                    }
+                } else {
+                    products = [...DEFAULT_PRODUCTS];
+                }
+            } catch (e) {
+                products = [...DEFAULT_PRODUCTS];
+            }
+
+            try {
+                const savedQty = localStorage.getItem(STORAGE_CART_KEY);
+                quantities = savedQty ? JSON.parse(savedQty) : {};
+            } catch (e) {
+                quantities = {};
+            }
+
+            try {
+                const savedMode = localStorage.getItem(STORAGE_MODE_KEY);
+                if (savedMode === 'wholesale' || savedMode === 'retail') {
+                    priceMode = savedMode;
+                }
+            } catch (e) {
+                priceMode = 'retail';
+            }
+        }
+
+        function getActivePrice(product) {
+            return priceMode === 'wholesale' ? product.wholesalePrice : product.retailPrice;
+        }
+
+        function setPriceMode(mode) {
+            if (mode !== 'retail' && mode !== 'wholesale') return;
+            priceMode = mode;
+            try {
+                localStorage.setItem(STORAGE_MODE_KEY, priceMode);
+            } catch (e) {}
+
+            applyPriceModeUI();
+            renderProducts();
+            updateTotals();
+            showToast(priceMode === 'wholesale' ? 'மொத்த விலை (Wholesale Mode)' : 'சில்லறை விலை (Retail Mode)');
+        }
+
+        function applyPriceModeUI() {
+            const header = document.getElementById('appHeader');
+            const retailBtn = document.getElementById('modeRetailBtn');
+            const wholesaleBtn = document.getElementById('modeWholesaleBtn');
+            const activePill = document.getElementById('activeModePill');
+            const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+            if (priceMode === 'wholesale') {
+                header.classList.remove('from-brand-700', 'via-brand-800', 'to-teal-900');
+                header.classList.add('from-indigo-800', 'via-indigo-900', 'to-slate-900');
+
+                wholesaleBtn.className = 'py-2 px-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 bg-amber-400 text-slate-950 shadow transition tap-active';
+                retailBtn.className = 'py-2 px-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 text-white/85 hover:text-white transition tap-active';
+
+                activePill.textContent = 'WHOLESALE';
+                activePill.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950';
+                if (themeMeta) themeMeta.setAttribute('content', '#3730a3');
+            } else {
+                header.classList.add('from-brand-700', 'via-brand-800', 'to-teal-900');
+                header.classList.remove('from-indigo-800', 'via-indigo-900', 'to-slate-900');
+
+                retailBtn.className = 'py-2 px-2 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 bg-white text-brand-900 shadow transition tap-active';
+                wholesaleBtn.className = 'py-2 px-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 text-white/85 hover:text-white transition tap-active';
+
+                activePill.textContent = 'RETAIL';
+                activePill.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950';
+                if (themeMeta) themeMeta.setAttribute('content', '#0f766e');
+            }
+        }
+
+        function saveProductsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_PRODUCTS_KEY, JSON.stringify(products));
+            } catch (e) {
+                console.error('Failed to save products:', e);
+            }
+        }
+
+        function saveQuantitiesToStorage() {
+            try {
+                localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(quantities));
+            } catch (e) {
+                console.error('Failed to save quantities:', e);
+            }
+        }
+
+        /**
+         * 4. SEARCH & SELECTED FILTERING
+         */
+        function handleSearch(val) {
+            searchQuery = val.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (searchQuery.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderProducts();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            handleSearch('');
+            input.focus();
+        }
+
+        function toggleSelectedOnly() {
+            showSelectedOnly = !showSelectedOnly;
+            const btn = document.getElementById('selectedOnlyBtn');
+            if (showSelectedOnly) {
+                btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+                btn.classList.add('bg-brand-700', 'text-white', 'border-brand-700');
+            } else {
+                btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
+                btn.classList.remove('bg-brand-700', 'text-white', 'border-brand-700');
+            }
+            renderProducts();
+        }
+
+        function resetFilters() {
+            showSelectedOnly = false;
+            document.getElementById('searchInput').value = '';
+            searchQuery = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            const btn = document.getElementById('selectedOnlyBtn');
+            btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
+            btn.classList.remove('bg-brand-700', 'text-white', 'border-brand-700');
+            renderProducts();
+        }
+
+        /**
+         * 5. RENDER PRODUCT CARDS & QUANTITY CONTROLS
+         */
+        function renderProducts() {
+            const container = document.getElementById('productListContainer');
+            const emptyState = document.getElementById('emptyState');
+
+            const filtered = products.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery);
+                const qty = quantities[p.id] || 0;
+                const matchesSelected = !showSelectedOnly || qty > 0;
+                return matchesSearch && matchesSelected;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            const isWholesale = priceMode === 'wholesale';
+
+            container.innerHTML = filtered.map((product, idx) => {
+                const qty = quantities[product.id] || 0;
+                const isSelected = qty > 0;
+                const activeUnitPrice = getActivePrice(product);
+                const otherUnitPrice = isWholesale ? product.retailPrice : product.wholesalePrice;
+                const subtotal = formatCurrency(qty * activeUnitPrice);
+
+                const selectedCardClasses = isWholesale
+                    ? 'bg-indigo-50/90 border-indigo-500 shadow-md ring-1 ring-indigo-500/30'
+                    : 'bg-teal-50/90 border-brand-500 shadow-md ring-1 ring-brand-500/30';
+
+                const activePriceBadgeClasses = isWholesale
+                    ? 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                    : 'bg-emerald-50 text-brand-900 border-brand-200';
+
+                const subtotalBadgeClasses = isWholesale
+                    ? 'bg-indigo-700 text-white'
+                    : 'bg-brand-700 text-white';
+
+                return `
+                    <div id="card-${product.id}" class="rounded-2xl p-3 transition-all duration-150 border ${
+                        isSelected 
+                        ? selectedCardClasses
+                        : 'bg-white border-slate-200/90 shadow-xs'
+                    }">
+                        <div class="flex items-center justify-between gap-2.5">
+                            <!-- Left: Product Name & Active/Secondary Prices -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] font-bold text-slate-400">#${idx + 1}</span>
+                                    <h3 class="font-bold text-slate-900 text-sm sm:text-base leading-snug truncate">
+                                        ${escapeHtml(product.name)}
+                                    </h3>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                                    <span class="inline-flex items-center ${activePriceBadgeClasses} font-extrabold text-xs px-2 py-0.5 rounded-md border">
+                                        ${isWholesale ? 'WS' : 'RT'}: ₹${formatCurrency(activeUnitPrice)}
+                                    </span>
+                                    <span class="text-[11px] font-medium text-slate-400">
+                                        (${isWholesale ? 'Retail' : 'Wholesale'}: ₹${formatCurrency(otherUnitPrice)})
+                                    </span>
+                                    <!-- Item Subtotal Badge (Visible when qty > 0) -->
+                                    <span id="subtotal-${product.id}" class="${isSelected ? 'inline-flex' : 'hidden'} items-center ${subtotalBadgeClasses} font-extrabold text-xs px-2 py-0.5 rounded-md shadow-xs">
+                                        = ₹${subtotal}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Right: Big Touch-Friendly Quantity Controls (- [Input] +) -->
+                            <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 shrink-0">
+                                <button 
+                                    type="button"
+                                    onclick="changeQty(${product.id}, -1)"
+                                    aria-label="Decrease quantity"
+                                    class="w-10 h-10 rounded-lg bg-white hover:bg-rose-50 active:bg-rose-100 text-slate-700 hover:text-rose-600 font-extrabold text-lg flex items-center justify-center shadow-xs border border-slate-200/80 tap-active">
+                                    <i class="fa-solid fa-minus text-xs"></i>
+                                </button>
+
+                                <input 
+                                    type="number" 
+                                    inputmode="decimal"
+                                    min="0"
+                                    step="any"
+                                    id="qty-input-${product.id}"
+                                    value="${qty > 0 ? qty : ''}"
+                                    placeholder="0"
+                                    onfocus="this.select()"
+                                    oninput="setDirectQty(${product.id}, this.value)"
+                                    class="w-12 h-10 text-center bg-transparent font-extrabold text-base sm:text-lg text-slate-900 focus:bg-white focus:rounded-lg focus:ring-2 focus:ring-brand-600 outline-none mx-0.5"
+                                >
+
+                                <button 
+                                    type="button"
+                                    onclick="changeQty(${product.id}, 1)"
+                                    aria-label="Increase quantity"
+                                    class="w-10 h-10 rounded-lg ${isWholesale ? 'bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800' : 'bg-brand-600 hover:bg-brand-700 active:bg-brand-800'} text-white font-extrabold text-lg flex items-center justify-center shadow-xs tap-active">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /**
+         * 6. QUANTITY UPDATE LOGIC (INSTANT & SMOOTH)
+         */
+        function changeQty(productId, delta) {
+            const current = parseFloat(quantities[productId]) || 0;
+            let next = Math.max(0, Math.round((current + delta) * 100) / 100);
+
+            if (next === 0) {
+                delete quantities[productId];
+            } else {
+                quantities[productId] = next;
+            }
+
+            const inputEl = document.getElementById(`qty-input-${productId}`);
+            if (inputEl) {
+                inputEl.value = next > 0 ? next : '';
+            }
+
+            updateCardHighlight(productId, next);
+            saveQuantitiesToStorage();
+            updateTotals();
+
+            if (showSelectedOnly && next === 0) {
+                renderProducts();
+            }
+        }
+
+        function setDirectQty(productId, rawValue) {
+            const parsed = parseFloat(rawValue);
+            const qty = (!isNaN(parsed) && parsed > 0) ? parsed : 0;
+
+            if (qty === 0) {
+                delete quantities[productId];
+            } else {
+                quantities[productId] = qty;
+            }
+
+            updateCardHighlight(productId, qty);
+            saveQuantitiesToStorage();
+            updateTotals();
+        }
+
+        function updateCardHighlight(productId, qty) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const card = document.getElementById(`card-${productId}`);
+            const subBadge = document.getElementById(`subtotal-${productId}`);
+            const isWholesale = priceMode === 'wholesale';
+            const activeUnitPrice = getActivePrice(product);
+
+            if (card && subBadge) {
+                if (qty > 0) {
+                    card.classList.remove('bg-white', 'border-slate-200/90', 'shadow-xs', 'bg-teal-50/90', 'border-brand-500', 'ring-brand-500/30', 'bg-indigo-50/90', 'border-indigo-500', 'ring-indigo-500/30');
+                    if (isWholesale) {
+                        card.classList.add('bg-indigo-50/90', 'border-indigo-500', 'shadow-md', 'ring-1', 'ring-indigo-500/30');
+                    } else {
+                        card.classList.add('bg-teal-50/90', 'border-brand-500', 'shadow-md', 'ring-1', 'ring-brand-500/30');
+                    }
+                    subBadge.classList.remove('hidden');
+                    subBadge.classList.add('inline-flex');
+                    subBadge.textContent = `= ₹${formatCurrency(qty * activeUnitPrice)}`;
+                } else {
+                    card.classList.add('bg-white', 'border-slate-200/90', 'shadow-xs');
+                    card.classList.remove('bg-teal-50/90', 'border-brand-500', 'shadow-md', 'ring-1', 'ring-brand-500/30', 'bg-indigo-50/90', 'border-indigo-500', 'ring-indigo-500/30');
+                    subBadge.classList.add('hidden');
+                    subBadge.classList.remove('inline-flex');
+                }
+            }
+        }
+
+        function updateTotals() {
+            let grandTotal = 0;
+            let distinctItems = 0;
+            let totalUnits = 0;
+
+            for (const product of products) {
+                const qty = parseFloat(quantities[product.id]) || 0;
+                if (qty > 0) {
+                    grandTotal += qty * getActivePrice(product);
+                    distinctItems += 1;
+                    totalUnits += qty;
+                }
+            }
+
+            document.getElementById('grandTotalDisplay').textContent = formatCurrency(grandTotal);
+            document.getElementById('itemCountBadge').textContent = `${distinctItems} Items (${formatCurrency(totalUnits)} Qty)`;
+
+            const navBadge = document.getElementById('navBadgeCount');
+            if (distinctItems > 0) {
+                navBadge.textContent = distinctItems;
+                navBadge.classList.remove('hidden');
+            } else {
+                navBadge.classList.add('hidden');
+            }
+        }
+
+        /**
+         * 7. BILL SUMMARY MODAL & WHATSAPP / COPY SHARE
+         */
+        function openBillModal() {
+            const modal = document.getElementById('billModal');
+            const itemsContainer = document.getElementById('billItemsContainer');
+            const dateTimeEl = document.getElementById('billDateTime');
+            const modeBadge = document.getElementById('billModeBadge');
+            const modalHeader = document.getElementById('billModalHeader');
+            const isWholesale = priceMode === 'wholesale';
+
+            if (isWholesale) {
+                modalHeader.classList.remove('bg-brand-700');
+                modalHeader.classList.add('bg-indigo-800');
+                modeBadge.textContent = 'Wholesale Rate (மொத்த விலை)';
+                modeBadge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950';
+            } else {
+                modalHeader.classList.add('bg-brand-700');
+                modalHeader.classList.remove('bg-indigo-800');
+                modeBadge.textContent = 'Retail Rate (சில்லறை விலை)';
+                modeBadge.className = 'text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-300 text-slate-950';
+            }
+
+            const now = new Date();
+            dateTimeEl.textContent = now.toLocaleString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', hour12: true
+            });
+
+            const selectedItems = products
+                .filter(p => (parseFloat(quantities[p.id]) || 0) > 0)
+                .map(p => {
+                    const qty = parseFloat(quantities[p.id]);
+                    const unitPrice = getActivePrice(p);
+                    return {
+                        ...p,
+                        qty,
+                        unitPrice,
+                        lineTotal: qty * unitPrice
+                    };
+                });
+
+            if (selectedItems.length === 0) {
+                itemsContainer.innerHTML = `
+                    <div class="p-8 text-center text-slate-500">
+                        <i class="fa-solid fa-basket-shopping text-3xl text-slate-300 mb-2"></i>
+                        <p class="font-bold text-sm text-slate-700">No items selected yet!</p>
+                        <p class="text-xs mt-1">பொருட்களின் அளவை (Quantity) உள்ளிடவும்.</p>
+                    </div>
+                `;
+                document.getElementById('billModalTotal').textContent = '0';
+                document.getElementById('billTotalItemsText').textContent = '0 Items';
+            } else {
+                let total = 0;
+                itemsContainer.innerHTML = selectedItems.map((item, i) => {
+                    total += item.lineTotal;
+                    return `
+                        <div class="p-3 flex items-center justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-slate-800 text-sm truncate">${i + 1}. ${escapeHtml(item.name)}</div>
+                                <div class="text-xs text-slate-500 mt-0.5">
+                                    ${formatCurrency(item.qty)} × ₹${formatCurrency(item.unitPrice)}
+                                </div>
+                            </div>
+                            <div class="font-extrabold text-slate-900 text-sm sm:text-base shrink-0">
+                                ₹${formatCurrency(item.lineTotal)}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('billModalTotal').textContent = formatCurrency(total);
+                document.getElementById('billTotalItemsText').textContent = `${selectedItems.length} Items • ${isWholesale ? 'Wholesale' : 'Retail'}`;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeBillModal() {
+            document.getElementById('billModal').classList.add('hidden');
+        }
+
+        function generatePlainTextBill() {
+            const selectedItems = products.filter(p => (parseFloat(quantities[p.id]) || 0) > 0);
+            if (selectedItems.length === 0) return null;
+
+            const isWholesale = priceMode === 'wholesale';
+            const modeLabel = isWholesale ? 'Wholesale Rate (மொத்த விலை)' : 'Retail Rate (சில்லறை விலை)';
+
+            const now = new Date().toLocaleString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+
+            let lines = [
+                `🧾 *ESTIMATE / BILL*`,
+                `🏷️ *${modeLabel}*`,
+                `📅 ${now}`,
+                `------------------------`
+            ];
+
+            let grandTotal = 0;
+            selectedItems.forEach((p, index) => {
+                const qty = parseFloat(quantities[p.id]);
+                const unitPrice = getActivePrice(p);
+                const sub = qty * unitPrice;
+                grandTotal += sub;
+                lines.push(`${index + 1}. ${p.name}`);
+                lines.push(`   ${formatCurrency(qty)} x ₹${formatCurrency(unitPrice)} = *₹${formatCurrency(sub)}*`);
+            });
+
+            lines.push(`------------------------`);
+            lines.push(`💰 *TOTAL: ₹${formatCurrency(grandTotal)}*`);
+            lines.push(`Thank you! / நன்றி!`);
+
+            return lines.join('\n');
+        }
+
+        function copyBillText() {
+            const text = generatePlainTextBill();
+            if (!text) {
+                showToast('Select at least 1 item first!');
+                return;
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Bill copied to clipboard!');
+            } catch (err) {
+                showToast('Could not copy bill');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function shareWhatsApp() {
+            const text = generatePlainTextBill();
+            if (!text) {
+                showToast('Select at least 1 item first!');
+                return;
+            }
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        }
+
+        function startNewBill() {
+            quantities = {};
+            saveQuantitiesToStorage();
+            renderProducts();
+            updateTotals();
+            closeBillModal();
+            showToast('Cleared! Ready for next customer');
+        }
+
+        /**
+         * 8. MANAGE PRODUCTS & FIXED PRICES MODAL (CRUD)
+         */
+        function openManageModal() {
+            resetProductForm();
+            renderManageList();
+            document.getElementById('manageModal').classList.remove('hidden');
+        }
+
+        function closeManageModal() {
+            document.getElementById('manageModal').classList.add('hidden');
+            renderProducts();
+            updateTotals();
+        }
+
+        function renderManageList() {
+            const listEl = document.getElementById('manageProductList');
+            const filter = document.getElementById('manageSearchInput').value.trim().toLowerCase();
+
+            const filtered = products.filter(p => 
+                p.name.toLowerCase().includes(filter)
+            );
+
+            listEl.innerHTML = filtered.map((p, idx) => `
+                <div class="bg-white rounded-xl p-2.5 border border-slate-200 shadow-2xs space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="font-bold text-slate-800 text-xs sm:text-sm truncate flex-1">${idx + 1}. ${escapeHtml(p.name)}</div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="editProduct(${p.id})" class="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center tap-active" title="Edit Name & Prices">
+                                <i class="fa-solid fa-pen text-[11px]"></i>
+                            </button>
+                            <button onclick="deleteProduct(${p.id})" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center tap-active" title="Delete Product">
+                                <i class="fa-solid fa-trash text-[11px]"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Inline Retail & Wholesale Price Editors -->
+                    <div class="grid grid-cols-2 gap-2 pt-0.5">
+                        <div class="flex items-center bg-teal-50/70 border border-teal-200 rounded-lg px-2 py-1">
+                            <span class="text-[10px] font-bold text-teal-800 mr-1.5 shrink-0">Retail ₹</span>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                min="0" 
+                                value="${p.retailPrice}" 
+                                onchange="updateInlinePrice(${p.id}, 'retail', this.value)"
+                                class="w-full bg-transparent text-xs font-extrabold text-slate-900 text-right outline-none"
+                            >
+                        </div>
+                        <div class="flex items-center bg-indigo-50/70 border border-indigo-200 rounded-lg px-2 py-1">
+                            <span class="text-[10px] font-bold text-indigo-800 mr-1.5 shrink-0">Wholesale ₹</span>
+                            <input 
+                                type="number" 
+                                step="0.01" 
+                                min="0" 
+                                value="${p.wholesalePrice}" 
+                                onchange="updateInlinePrice(${p.id}, 'wholesale', this.value)"
+                                class="w-full bg-transparent text-xs font-extrabold text-slate-900 text-right outline-none"
+                            >
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateInlinePrice(id, type, rawVal) {
+            const val = parseFloat(rawVal);
+            if (isNaN(val) || val < 0) return;
+            const prod = products.find(p => p.id === id);
+            if (!prod) return;
+
+            if (type === 'retail') {
+                prod.retailPrice = val;
+            } else {
+                prod.wholesalePrice = val;
+            }
+            saveProductsToStorage();
+            showToast('Price saved!');
+        }
+
+        function saveProductForm(e) {
+            e.preventDefault();
+            const idVal = document.getElementById('editProductId').value;
+            const nameVal = document.getElementById('prodNameInput').value.trim();
+            const retailVal = parseFloat(document.getElementById('prodRetailInput').value);
+            const wholesaleVal = parseFloat(document.getElementById('prodWholesaleInput').value);
+
+            if (!nameVal || isNaN(retailVal) || retailVal < 0 || isNaN(wholesaleVal) || wholesaleVal < 0) {
+                showToast('Enter valid name & both prices');
+                return;
+            }
+
+            if (idVal) {
+                const idNum = parseInt(idVal, 10);
+                const index = products.findIndex(p => p.id === idNum);
+                if (index !== -1) {
+                    products[index] = {
+                        id: idNum,
+                        name: nameVal,
+                        retailPrice: retailVal,
+                        wholesalePrice: wholesaleVal
+                    };
+                    showToast('Prices / Product Updated!');
+                }
+            } else {
+                const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+                products.push({
+                    id: newId,
+                    name: nameVal,
+                    retailPrice: retailVal,
+                    wholesalePrice: wholesaleVal
+                });
+                showToast('New Product Added!');
+            }
+
+            saveProductsToStorage();
+            resetProductForm();
+            renderManageList();
+        }
+
+        function editProduct(id) {
+            const prod = products.find(p => p.id === id);
+            if (!prod) return;
+
+            document.getElementById('editProductId').value = prod.id;
+            document.getElementById('prodNameInput').value = prod.name;
+            document.getElementById('prodRetailInput').value = prod.retailPrice;
+            document.getElementById('prodWholesaleInput').value = prod.wholesalePrice;
+
+            document.getElementById('saveProdBtnText').textContent = 'Update Prices / விலை மாற்று';
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+            document.getElementById('prodWholesaleInput').focus();
+        }
+
+        function resetProductForm() {
+            document.getElementById('editProductId').value = '';
+            document.getElementById('prodNameInput').value = '';
+            document.getElementById('prodRetailInput').value = '';
+            document.getElementById('prodWholesaleInput').value = '';
+            document.getElementById('saveProdBtnText').textContent = 'Add Product / சேர்க்க';
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+        }
+
+        function deleteProduct(id) {
+            products = products.filter(p => p.id !== id);
+            delete quantities[id];
+            saveProductsToStorage();
+            saveQuantitiesToStorage();
+            renderManageList();
+            showToast('Product removed');
+        }
+
+        /**
+         * 9. CUSTOM CONFIRMATION DIALOGS & HELPERS
+         */
+        function openResetConfirm() {
+            const hasItems = Object.keys(quantities).length > 0;
+            if (!hasItems) {
+                showToast('Already 0! / ஏற்கனவே காலியாக உள்ளது');
+                return;
+            }
+
+            document.getElementById('confirmTitle').textContent = 'Clear All Quantities?';
+            document.getElementById('confirmMessage').textContent = 'All entered quantities will reset to 0. Your fixed prices stay safe.';
+            const actionBtn = document.getElementById('confirmActionBtn');
+            actionBtn.textContent = 'Yes, Clear / அழி';
+            actionBtn.onclick = () => {
+                quantities = {};
+                saveQuantitiesToStorage();
+                renderProducts();
+                updateTotals();
+                closeConfirmModal();
+                showToast('All quantities cleared!');
+            };
+            document.getElementById('confirmModal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            if (tab === 'billing') {
+                closeBillModal();
+                closeManageModal();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2200);
+        }
+
+        function formatCurrency(num) {
+            const rounded = Math.round(num * 100) / 100;
+            return Number.isInteger(rounded) ? rounded.toLocaleString('en-IN') : rounded.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
