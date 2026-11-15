@@ -27,4 +27,17 @@
   "screenshots": [
     {
       "src": "https://placehold.co/1080x1920/059669/ffffff.png?text=Quick+Shop+Billing",
-      "sizes
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Quick Billing Screen"
+    },
+    {
+      "src": "https://placehold.co/1920x1080/059669/ffffff.png?text=Quick+Shop+Billing",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Desktop View"
+    }
+  ]
+}
