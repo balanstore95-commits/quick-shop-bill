@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.ybtraders.quickshopbill",
+        "sha256_cert_fingerprints": ["42:0D:FD:F6:0E:A0:40:A9:72:45:AA:A9:5A:8D:14:87:A4:90:76:49:E7:6E:09:C3:99:3B:B1:C3:4F:9E:37:2D"]
+      }
+    }]
